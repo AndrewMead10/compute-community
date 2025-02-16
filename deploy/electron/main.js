@@ -1,7 +1,8 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
-const { spawn } = require('child_process');
+const { spawn, execSync } = require('child_process');
 const Store = require('electron-store');
+const fs = require('fs');
 const store = new Store();
 
 let mainWindow;
@@ -20,8 +21,43 @@ function createWindow() {
   mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
 }
 
+function setupVirtualEnv() {
+  const venvPath = path.join(__dirname, '../venv');
+  const requirementsPath = path.join(__dirname, '../requirements.txt');
+
+  // Check if venv already exists
+  if (!fs.existsSync(venvPath)) {
+    console.log('Creating virtual environment...');
+    try {
+      execSync('python -m venv venv', { cwd: path.join(__dirname, '..') });
+    } catch (error) {
+      console.error('Failed to create virtual environment:', error);
+      throw error;
+    }
+  }
+
+  // Install requirements
+  console.log('Installing requirements...');
+  const pipPath = process.platform === 'win32' ? 
+    path.join(venvPath, 'Scripts', 'pip') :
+    path.join(venvPath, 'bin', 'pip');
+
+  try {
+    execSync(`"${pipPath}" install -r "${requirementsPath}"`, { 
+      cwd: path.join(__dirname, '..'),
+      stdio: 'inherit'
+    });
+  } catch (error) {
+    console.error('Failed to install requirements:', error);
+    throw error;
+  }
+}
+
 function startBackend() {
-  const pythonPath = store.get('pythonPath') || 'python';
+  const pythonPath = process.platform === 'win32' ? 
+    path.join(__dirname, '../venv/Scripts/python') :
+    path.join(__dirname, '../venv/bin/python');
+
   backendProcess = spawn(pythonPath, [path.join(__dirname, '../main.py')]);
 
   backendProcess.stdout.on('data', (data) => {
@@ -38,12 +74,18 @@ function startBackend() {
 }
 
 app.whenReady().then(() => {
-  createWindow();
-  startBackend();
+  try {
+    setupVirtualEnv();
+    createWindow();
+    startBackend();
 
-  app.on('activate', function () {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
-  });
+    app.on('activate', function () {
+      if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    });
+  } catch (error) {
+    console.error('Failed to start application:', error);
+    app.quit();
+  }
 });
 
 app.on('window-all-closed', function () {
