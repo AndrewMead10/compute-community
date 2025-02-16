@@ -12,8 +12,17 @@ import uuid
 import psutil
 import requests
 from pathlib import Path
+from setup_tgi import setup_tgi
 
 app = FastAPI(title="TGI Manager")
+
+# Configuration
+class Config:
+    def __init__(self):
+        self.workspace_dir = os.path.abspath(os.path.dirname(__file__))
+        self.tgi_info = None
+
+config = Config()
 
 # Models for request/response
 class ModelConfig(BaseModel):
@@ -125,15 +134,20 @@ async def toggle_api_key(key: str):
 
 # TGI server management
 def start_tgi_server(model_config: ModelConfig):
+    if not config.tgi_info:
+        raise HTTPException(status_code=500, detail="TGI not properly initialized")
+
+    venv_python = os.path.join(config.tgi_info["venv_path"], "bin", "python")
+    
     if model_config.backend == "llama.cpp":
         cmd = [
-            "text-generation-launcher",
+            venv_python, "-m", "text_generation_launcher",
             "--model-id", model_config.model_id,
             "--backend", "llama.cpp"
         ]
     else:
         cmd = [
-            "text-generation-launcher",
+            venv_python, "-m", "text_generation_launcher",
             "--model-id", model_config.model_id
         ]
     
@@ -164,6 +178,16 @@ async def stop_server():
 @app.on_event("startup")
 async def startup_event():
     init_db()
+    try:
+        print("Setting up TGI...")
+        config.tgi_info = setup_tgi(config.workspace_dir)
+        print("TGI setup completed successfully!")
+    except Exception as e:
+        print(f"Error setting up TGI: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to initialize TGI: {str(e)}"
+        )
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

@@ -8,6 +8,7 @@ A desktop application for managing and serving Hugging Face Text Generation Infe
 - Manage API keys for server access
 - Automatic reverse proxy setup
 - Support for gated models with Hugging Face tokens
+- Automatic installation and setup of Text Generation Inference
 
 ## Installation
 
@@ -16,22 +17,26 @@ A desktop application for managing and serving Hugging Face Text Generation Infe
 1. Node.js 16+ and npm
 2. Python 3.8+
 3. CUDA toolkit (for CUDA backend) or Llama.cpp (for CPU backend)
+4. Git
 
 ### Setup
 
-1. Install Python dependencies:
-```bash
-pip install -r requirements.txt
-```
+The application will automatically set up Text Generation Inference and all its dependencies when it starts for the first time. This includes:
 
-2. Install Node.js dependencies:
+1. Installing system dependencies (including Rust and Protobuf)
+2. Setting up a Python virtual environment
+3. Building text-generation-inference from source
+4. Configuring the development environment
+
+Simply run:
+
 ```bash
+# Install dependencies
 npm install
-```
 
-3. Build the application:
-```bash
+# Build and start the application
 npm run build
+npm start
 ```
 
 ## Usage
