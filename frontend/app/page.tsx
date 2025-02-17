@@ -3,13 +3,15 @@
 import { useState, useEffect } from 'react';
 import { ChatBox } from '@/components/ChatBox/ChatBox';
 import { useChatState } from '@/components/ChatStateProvider';
-import { useHostConfig } from '@/hooks/useHostConfig';
+import { useHostConfig, dispatchHostConfigChange } from '@/hooks/useHostConfig';
 import { HostCard } from '@/components/settings/HostCard';
 import { AddHostForm } from '@/components/settings/AddHostForm';
 import { HostConfiguration, HostConfigurations } from '@/types/settings';
 import { checkHostHealth, getAvailableModels } from '@/lib/openrouter';
 import { v4 as uuidv4 } from 'uuid';
 import { ChatSidebar } from '@/components/ChatSidebar';
+import { Button } from '@/components/ui/button';
+import { Plus } from 'lucide-react';
 
 const STORAGE_KEY = 'host_configurations';
 const SELECTED_HOST_KEY = 'selected_host_id';
@@ -23,7 +25,8 @@ export default function Home() {
   const [hosts, setHosts] = useState<HostConfigurations>([]);
   const [selectedHostId, setSelectedHostId] = useState<string | null>(null);
   const [hostStatus, setHostStatus] = useState<Record<string, boolean>>({});
-  const [hostToEdit, setHostToEdit] = useState<HostConfiguration | null>(null);
+  const [hostToEdit, setHostToEdit] = useState<HostConfiguration | undefined>(undefined);
+  const [showHostDialog, setShowHostDialog] = useState(false);
   const [currentModel, setCurrentModel] = useState<string | null>(null);
 
   // Load hosts and selected host
@@ -141,8 +144,11 @@ export default function Home() {
       setHostStatus(prev => ({ ...prev, [hostWithId.id]: status }));
     });
 
-    // Refresh the host config
-    hostConfig.refresh();
+    // Close the dialog
+    setShowHostDialog(false);
+
+    // Dispatch the change event
+    dispatchHostConfigChange();
   };
 
   const handleUpdateHost = (updatedHost: HostConfiguration) => {
@@ -151,17 +157,22 @@ export default function Home() {
     );
     setHosts(updatedHosts);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedHosts));
-    setHostToEdit(null);
+    setHostToEdit(undefined);
+    setShowHostDialog(false);
 
     // Check health of updated host
     checkHostHealth(updatedHost.baseUrl).then(status => {
       setHostStatus(prev => ({ ...prev, [updatedHost.id]: status }));
     });
 
+    /**
     // Refresh the host config if this was the selected host
     if (updatedHost.id === selectedHostId) {
       hostConfig.refresh();
     }
+    **/
+    // Dispatch the change event
+    dispatchHostConfigChange();
   };
 
   const handleDeleteHost = (id: string) => {
@@ -186,12 +197,16 @@ export default function Home() {
         localStorage.removeItem(SELECTED_HOST_KEY);
       }
     }
+
+    // Dispatch the change event
+    dispatchHostConfigChange();
   };
 
   const handleSelectHost = (id: string) => {
     setSelectedHostId(id);
     localStorage.setItem(SELECTED_HOST_KEY, id);
-    hostConfig.refresh();
+    // Dispatch the change event
+    dispatchHostConfigChange();
   };
 
   // Add wrapper for handleNewChat
@@ -203,6 +218,16 @@ export default function Home() {
   const handleLoadChatWithSettingsClose = (chatId: string) => {
     handleLoadChat(chatId);
     setShowSettings(false);
+  };
+
+  const openAddHostDialog = () => {
+    setHostToEdit(undefined);
+    setShowHostDialog(true);
+  };
+
+  const handleEditHost = (host: HostConfiguration) => {
+    setHostToEdit(host);
+    setShowHostDialog(true);
   };
 
   return (
@@ -220,27 +245,39 @@ export default function Home() {
           <div className="container mx-auto py-4 px-6 max-w-4xl">
             <div className="flex items-center justify-between mb-4">
               <h1 className="text-xl font-semibold">API Settings</h1>
-              <span className="text-sm text-muted-foreground">
-                {hosts.length} host{hosts.length !== 1 ? 's' : ''} configured
-              </span>
+              <div className="flex items-center gap-4">
+                <span className="text-sm text-muted-foreground">
+                  {hosts.length} host{hosts.length !== 1 ? 's' : ''} configured
+                </span>
+                <Button onClick={openAddHostDialog} className="flex items-center gap-2">
+                  <Plus className="h-4 w-4" />
+                  Add Host
+                </Button>
+              </div>
             </div>
 
-            {hostToEdit ? (
-              <AddHostForm
-                onAdd={handleAddHost}
-                hostToEdit={hostToEdit}
-                onUpdate={handleUpdateHost}
-                onCancel={() => setHostToEdit(null)}
-              />
-            ) : (
-              <AddHostForm onAdd={handleAddHost} />
-            )}
+            <AddHostForm
+              onAdd={handleAddHost}
+              hostToEdit={hostToEdit}
+              onUpdate={handleUpdateHost}
+              onCancel={() => {
+                setHostToEdit(undefined);
+                setShowHostDialog(false);
+              }}
+              open={showHostDialog}
+              onOpenChange={(open) => {
+                setShowHostDialog(open);
+                if (!open) setHostToEdit(undefined);
+              }}
+            />
 
             <div>
               {hosts.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No hosts configured yet. Add one above.
-                </p>
+                <div className="text-center py-8">
+                  <p className="text-sm text-muted-foreground">
+                    No hosts configured yet. Add one to get started.
+                  </p>
+                </div>
               ) : (
                 hosts.map(host => (
                   <HostCard
@@ -248,7 +285,7 @@ export default function Home() {
                     host={host}
                     onDelete={handleDeleteHost}
                     onSelect={handleSelectHost}
-                    onEdit={setHostToEdit}
+                    onEdit={handleEditHost}
                     isSelected={host.id === selectedHostId}
                     isRunning={hostStatus[host.id] ?? null}
                   />

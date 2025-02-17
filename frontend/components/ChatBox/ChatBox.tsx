@@ -173,7 +173,6 @@ interface MessageComponentProps {
     thinkingTokens: { start: string; end: string };
 }
 
-
 const MessageComponent: React.FC<MessageComponentProps> = ({
     message,
     onCopy,
@@ -186,8 +185,14 @@ const MessageComponent: React.FC<MessageComponentProps> = ({
     thinkingTokens,
 }) => {
     const [isThinkingExpanded, setIsThinkingExpanded] = useState(true);
+    const [mounted, setMounted] = useState(false);
     const messageKey = `${message.role}-${message.content.substring(0, 20)}`;
     const { theme } = useTheme();
+
+    // Set mounted state
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
     const renderMarkdown = (content: string) => {
         return (
@@ -198,6 +203,11 @@ const MessageComponent: React.FC<MessageComponentProps> = ({
                     code({ className, children, ...props }) {
                         const match = /language-(\w+)/.exec(className || '');
                         const key = `${messageKey}-${children}`;
+
+                        // Don't render syntax highlighting until theme is available
+                        if (!mounted) {
+                            return <code {...props}>{children}</code>;
+                        }
 
                         return match ? (
                             <div className="relative">

@@ -57,7 +57,7 @@ export function ChatSidebar({
     <Sidebar className="border-r">
       <SidebarHeader className="border-b p-2">
         <div className="px-2 py-1 mb-2 text-sm text-muted-foreground truncate">
-          Model: {currentModel || "Qwen/Qwen2.5-14B-Instruct-AWQ"}
+          Choose your Model: {currentModel || "Qwen/Qwen2.5-14B-Instruct-AWQ"}
         </div>
         <Button
           onClick={onNewChat}

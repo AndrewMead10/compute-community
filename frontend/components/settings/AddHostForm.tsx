@@ -4,23 +4,35 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { HostConfiguration } from '@/types/settings';
-import { getAvailableModels, OpenRouterModel } from '@/lib/openrouter';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 interface AddHostFormProps {
   onAdd: (host: Omit<HostConfiguration, 'id'>) => void;
   hostToEdit?: HostConfiguration;
   onUpdate?: (host: HostConfiguration) => void;
   onCancel?: () => void;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }
 
-export function AddHostForm({ onAdd, hostToEdit, onUpdate, onCancel }: AddHostFormProps) {
+export function AddHostForm({ 
+  onAdd, 
+  hostToEdit, 
+  onUpdate, 
+  onCancel, 
+  open, 
+  onOpenChange 
+}: AddHostFormProps) {
   const [name, setName] = useState(hostToEdit?.name || '');
   const [baseUrl, setBaseUrl] = useState(hostToEdit?.baseUrl || '');
   const [apiKey, setApiKey] = useState(hostToEdit?.apiKey || '');
   const [modelName, setModelName] = useState(hostToEdit?.modelName || '');
-  const [availableModels, setAvailableModels] = useState<OpenRouterModel[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     if (hostToEdit) {
@@ -30,20 +42,6 @@ export function AddHostForm({ onAdd, hostToEdit, onUpdate, onCancel }: AddHostFo
       setModelName(hostToEdit.modelName || '');
     }
   }, [hostToEdit]);
-
-  useEffect(() => {
-    if (baseUrl) {
-      setIsLoading(true);
-      getAvailableModels(baseUrl, apiKey)
-        .then(models => {
-          setAvailableModels(models);
-          if (models.length > 0 && !modelName && !hostToEdit?.modelName) {
-            setModelName(models[0].id);
-          }
-        })
-        .finally(() => setIsLoading(false));
-    }
-  }, [baseUrl, hostToEdit]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,11 +62,27 @@ export function AddHostForm({ onAdd, hostToEdit, onUpdate, onCancel }: AddHostFo
       setBaseUrl('');
       setModelName('');
     }
+    
+    // Close the dialog
+    onOpenChange(false);
+  };
+
+  const handleCancel = () => {
+    onOpenChange(false);
+    if (onCancel) {
+      onCancel();
+    }
   };
 
   return (
-    <Card className="mb-4">
-      <CardContent className="pt-4">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>
+            {hostToEdit ? 'Edit Host' : 'Add New Host'}
+          </DialogTitle>
+        </DialogHeader>
+        
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div className="space-y-2">
             <Label htmlFor="name">Name</Label>
@@ -103,36 +117,18 @@ export function AddHostForm({ onAdd, hostToEdit, onUpdate, onCancel }: AddHostFo
             />
           </div>
 
-          {availableModels.length > 0 && (
-            <div className="space-y-2">
-              <Label htmlFor="model-name">Model</Label>
-              <Select value={modelName} onValueChange={setModelName}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a model" />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableModels.map((model) => (
-                    <SelectItem key={model.id} value={model.id}>
-                      {model.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-          <div className="flex justify-end gap-2 pt-2">
-            {hostToEdit && onCancel && (
-              <Button type="button" variant="outline" onClick={onCancel}>
+          <DialogFooter>
+            {hostToEdit && (
+              <Button type="button" variant="outline" onClick={handleCancel}>
                 Cancel
               </Button>
             )}
             <Button type="submit">
               {hostToEdit ? 'Update Host' : 'Add Host'}
             </Button>
-          </div>
+          </DialogFooter>
         </form>
-      </CardContent>
-    </Card>
+      </DialogContent>
+    </Dialog>
   );
 } 

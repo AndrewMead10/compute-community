@@ -3,6 +3,12 @@ import { HostConfiguration } from '@/types/settings';
 
 const STORAGE_KEY = 'host_configurations';
 const SELECTED_HOST_KEY = 'selected_host_id';
+const HOST_CONFIG_CHANGE_EVENT = 'hostConfigChange';
+
+// Create a custom event dispatcher
+export const dispatchHostConfigChange = () => {
+  window.dispatchEvent(new Event(HOST_CONFIG_CHANGE_EVENT));
+};
 
 export function useHostConfig() {
   const [selectedHost, setSelectedHost] = useState<HostConfiguration | null>(null);
@@ -36,15 +42,26 @@ export function useHostConfig() {
   useEffect(() => {
     loadSelectedHost();
 
-    // Listen for storage changes
+    // old -Listen for storage changes
+    // Listen for both storage changes from other tabs and our custom event
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === STORAGE_KEY || e.key === SELECTED_HOST_KEY) {
         loadSelectedHost();
       }
     };
 
+    const handleConfigChange = () => {
+      loadSelectedHost();
+    };
+
     window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
+    //return () => window.removeEventListener('storage', handleStorageChange);
+    window.addEventListener(HOST_CONFIG_CHANGE_EVENT, handleConfigChange);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener(HOST_CONFIG_CHANGE_EVENT, handleConfigChange);
+    };
   }, [loadSelectedHost]);
 
   return {
